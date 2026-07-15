@@ -20,8 +20,8 @@ function formatHebrewDate(dateStr: string) {
 }
 
 export default function DashboardPage() {
-  const { currentUser, events, guests } = useStore();
-  const event = events.find((e) => e.id === currentUser?.eventId);
+  const { currentUser, currentEvent, guests } = useStore();
+  const event = currentEvent;
   const eventGuests = guests.filter((g) => g.eventId === currentUser?.eventId);
 
   const confirmed = eventGuests.filter((g) => g.status === 'confirmed');

@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
+import { supabase } from '@/lib/supabase';
+import { getOrCreateProfile } from '@/lib/supabaseData';
+import { User } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register } = useStore();
+  const { setCurrentUser } = useStore();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,33 +20,74 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 300));
 
-    if (mode === 'login') {
-      const ok = login(email, password);
-      if (ok) {
+    if (!email || !password) {
+      setError('נא למלא את כל השדות');
+      setLoading(false);
+      return;
+    }
+
+    if (mode === 'register') {
+      if (password.length < 6) {
+        setError('הסיסמה חייבת להכיל לפחות 6 תווים');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+
+      if (signUpError) {
+        if (signUpError.message.includes('already registered') || signUpError.message.includes('already been registered')) {
+          setError('כתובת האימייל כבר קיימת במערכת');
+        } else {
+          setError('שגיאה בהרשמה: ' + signUpError.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        const { eventId } = await getOrCreateProfile(data.user.id, email);
+        const newUser: User = {
+          id: data.user.id,
+          email,
+          password: '',
+          role: 'couple',
+          eventId,
+        };
+        setCurrentUser(newUser);
         router.push('/dashboard');
       } else {
-        setError('אימייל או סיסמה שגויים');
+        // Supabase may require email confirmation
+        setError('נשלח אימות לאימייל שלך. אנא אמת את החשבון ונסה להתחבר.');
       }
     } else {
-      if (!email || !password) {
-        setError('נא למלא את כל השדות');
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInError) {
+        if (signInError.message.includes('Invalid login credentials') || signInError.message.includes('invalid_credentials')) {
+          setError('אימייל או סיסמה שגויים');
+        } else {
+          setError('שגיאה בכניסה: ' + signInError.message);
+        }
         setLoading(false);
         return;
       }
-      if (password.length < 4) {
-        setError('הסיסמה חייבת להכיל לפחות 4 תווים');
-        setLoading(false);
-        return;
-      }
-      const ok = register(email, password);
-      if (ok) {
+
+      if (data.user) {
+        const { eventId } = await getOrCreateProfile(data.user.id, email);
+        const loggedInUser: User = {
+          id: data.user.id,
+          email,
+          password: '',
+          role: 'couple',
+          eventId,
+        };
+        setCurrentUser(loggedInUser);
         router.push('/dashboard');
-      } else {
-        setError('כתובת האימייל כבר קיימת במערכת');
       }
     }
+
     setLoading(false);
   };
 
@@ -133,12 +177,6 @@ export default function LoginPage() {
           {loading ? '...' : mode === 'login' ? 'כניסה' : 'הרשמה'}
         </button>
       </form>
-
-      {/* Demo hint */}
-      <div style={{ marginTop: '32px', textAlign: 'center' }}>
-        <div style={{ fontSize: '12px', color: '#555', marginBottom: '8px' }}>משתמש דמו:</div>
-        <div style={{ fontSize: '12px', color: '#888' }}>demo@test.com / 1234</div>
-      </div>
 
       {/* Admin link */}
       <div style={{ marginTop: '24px', textAlign: 'center' }}>

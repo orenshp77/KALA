@@ -6,8 +6,8 @@ import { MapPin, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function EventPage() {
-  const { currentUser, events, updateEvent } = useStore();
-  const event = events.find((e) => e.id === currentUser?.eventId);
+  const { currentEvent, updateEvent } = useStore();
+  const event = currentEvent;
 
   const [coupleName1, setCoupleName1] = useState('');
   const [coupleName2, setCoupleName2] = useState('');
@@ -26,12 +26,12 @@ export default function EventPage() {
     }
   }, [event?.id]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!event) {
       toast.error('שגיאה: לא נמצא אירוע');
       return;
     }
-    updateEvent(event.id, {
+    await updateEvent(event.id, {
       coupleName1,
       coupleName2,
       date: date ? new Date(date).toISOString() : '',

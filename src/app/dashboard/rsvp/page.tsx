@@ -13,8 +13,8 @@ function buildWhatsAppMessage(name: string, coupleName1: string, coupleName2: st
 }
 
 export default function RsvpPage() {
-  const { currentUser, events, guests, sendRound } = useStore();
-  const event = events.find((e) => e.id === currentUser?.eventId);
+  const { currentUser, currentEvent, guests, sendRound } = useStore();
+  const event = currentEvent;
   const eventGuests = guests.filter((g) => g.eventId === currentUser?.eventId);
 
   const [confirmModal, setConfirmModal] = useState<{ round: 1 | 2 | 3; targets: typeof eventGuests } | null>(null);
@@ -50,7 +50,7 @@ export default function RsvpPage() {
       }
     }
 
-    sendRound(event.id, confirmModal.round);
+    await sendRound(event.id, confirmModal.round);
     setSending(false);
     setConfirmModal(null);
   };

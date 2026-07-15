@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, use } from 'react';
-import { useStore } from '@/store/useStore';
+import { useState, use, useEffect } from 'react';
+import { getGuestByToken, respondToInviteInDB } from '@/lib/supabaseData';
+import { Guest, Event } from '@/types';
 
 const designs = [
   { id: 1, bg: 'linear-gradient(160deg, #1a1200 0%, #2d2000 100%)', textColor: '#d4a843', accent: '#f0c96e', divider: '#d4a84366' },
@@ -29,20 +30,47 @@ function formatHebrewDate(dateStr: string) {
 
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
-  const { getGuestByToken, getEventByToken, respondToInvite } = useStore();
 
-  const guest = getGuestByToken(token);
-  const event = getEventByToken(token);
+  const [guest, setGuest] = useState<Guest | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<'invite' | 'count' | 'done'>('invite');
+  const [guestsCount, setGuestsCount] = useState(1);
+  const [finalStatus, setFinalStatus] = useState<'confirmed' | 'declined' | null>(null);
 
-  const [step, setStep] = useState<'invite' | 'count' | 'done'>(
-    guest?.status !== 'pending' ? 'done' : 'invite'
-  );
-  const [guestsCount, setGuestsCount] = useState(guest?.guestsCount || 1);
-  const [finalStatus, setFinalStatus] = useState<'confirmed' | 'declined' | null>(
-    guest?.status !== 'pending' ? guest?.status as 'confirmed' | 'declined' : null
-  );
+  useEffect(() => {
+    getGuestByToken(token).then((result) => {
+      if (result) {
+        setGuest(result.guest);
+        setEvent(result.event);
+        setGuestsCount(result.guest.guestsCount || 1);
+        if (result.guest.status !== 'pending') {
+          setFinalStatus(result.guest.status as 'confirmed' | 'declined');
+          setStep('done');
+        }
+      }
+      setLoading(false);
+    });
+  }, [token]);
 
   const design = designs.find((d) => d.id === (event?.selectedDesign || 1)) || designs[0];
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#0f0f0f',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          direction: 'rtl',
+        }}
+      >
+        <div style={{ color: '#d4a843', fontSize: '16px' }}>טוען...</div>
+      </div>
+    );
+  }
 
   if (!guest || !event) {
     return (
@@ -64,8 +92,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     );
   }
 
-  const handleDecline = () => {
-    respondToInvite(token, 'declined');
+  const handleDecline = async () => {
+    await respondToInviteInDB(token, 'declined');
     setFinalStatus('declined');
     setStep('done');
   };
@@ -74,8 +102,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     setStep('count');
   };
 
-  const handleSubmitCount = () => {
-    respondToInvite(token, 'confirmed', guestsCount);
+  const handleSubmitCount = async () => {
+    await respondToInviteInDB(token, 'confirmed', guestsCount);
     setFinalStatus('confirmed');
     setStep('done');
   };

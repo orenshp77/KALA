@@ -51,8 +51,8 @@ const designs = [
 ];
 
 export default function DesignPage() {
-  const { currentUser, events, updateEvent } = useStore();
-  const event = events.find((e) => e.id === currentUser?.eventId);
+  const { currentEvent, updateEvent } = useStore();
+  const event = currentEvent;
   const selectedDesign = event?.selectedDesign || 1;
 
   const handleSelect = (id: number) => {

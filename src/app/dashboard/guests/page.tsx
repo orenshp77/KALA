@@ -35,6 +35,7 @@ export default function GuestsPage() {
   const [guestsCount, setGuestsCount] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [addingGuest, setAddingGuest] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const filtered = eventGuests.filter(
@@ -43,9 +44,10 @@ export default function GuestsPage() {
       g.phone.includes(searchQuery)
   );
 
-  const handleAddGuest = () => {
+  const handleAddGuest = async () => {
     if (!name.trim() || !phone.trim()) return;
-    addGuest({
+    setAddingGuest(true);
+    await addGuest({
       eventId: currentUser!.eventId,
       name: name.trim(),
       phone: cleanPhone(phone),
@@ -55,6 +57,7 @@ export default function GuestsPage() {
     setPhone('');
     setGuestsCount(1);
     setShowAdd(false);
+    setAddingGuest(false);
   };
 
   const handleImportContacts = async () => {
@@ -63,7 +66,7 @@ export default function GuestsPage() {
         const contacts = await (navigator as unknown as { contacts: { select: (fields: string[], opts: object) => Promise<Array<{ name: string[]; tel: string[] }>> } }).contacts.select(['name', 'tel'], { multiple: true });
         for (const c of contacts) {
           if (c.name && c.tel && c.tel[0]) {
-            addGuest({
+            await addGuest({
               eventId: currentUser!.eventId,
               name: c.name[0],
               phone: cleanPhone(c.tel[0]),
@@ -83,7 +86,7 @@ export default function GuestsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const text = ev.target?.result as string;
       if (file.name.endsWith('.vcf')) {
         const blocks = text.split('BEGIN:VCARD');
@@ -91,7 +94,7 @@ export default function GuestsPage() {
           const nameMatch = block.match(/FN:(.*)/);
           const telMatch = block.match(/TEL[^:]*:([\d\s\-\+]+)/);
           if (nameMatch && telMatch) {
-            addGuest({
+            await addGuest({
               eventId: currentUser!.eventId,
               name: nameMatch[1].trim(),
               phone: cleanPhone(telMatch[1].trim()),
@@ -104,7 +107,7 @@ export default function GuestsPage() {
         for (const line of lines) {
           const parts = line.split(',');
           if (parts[0] && parts[1]) {
-            addGuest({
+            await addGuest({
               eventId: currentUser!.eventId,
               name: parts[0].trim().replace(/"/g, ''),
               phone: cleanPhone(parts[1].trim().replace(/"/g, '')),
@@ -222,8 +225,13 @@ export default function GuestsPage() {
                 </button>
               </div>
             </div>
-            <button className="btn-primary" onClick={handleAddGuest} style={{ marginTop: '4px' }}>
-              הוסף מוזמן
+            <button
+              className="btn-primary"
+              onClick={handleAddGuest}
+              disabled={addingGuest}
+              style={{ marginTop: '4px', opacity: addingGuest ? 0.7 : 1 }}
+            >
+              {addingGuest ? '...' : 'הוסף מוזמן'}
             </button>
           </div>
         </div>
@@ -322,7 +330,7 @@ export default function GuestsPage() {
                     {confirmDelete === guest.id ? (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                          onClick={() => { deleteGuest(guest.id); setExpandedId(null); setConfirmDelete(null); }}
+                          onClick={async () => { await deleteGuest(guest.id); setExpandedId(null); setConfirmDelete(null); }}
                           style={{ flex: 1, height: '40px', background: '#ef4444', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '700' }}
                         >
                           מחק

@@ -1,15 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useStore } from '@/store/useStore';
 
 export default function PhoneFrame({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(true);
 
   useEffect(() => {
-    // Rehydrate Zustand store from localStorage
-    useStore.persist.rehydrate();
-
     const check = () => setIsMobile(window.innerWidth <= 768);
     check();
     window.addEventListener('resize', check);

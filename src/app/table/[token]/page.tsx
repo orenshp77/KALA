@@ -1,7 +1,8 @@
 'use client';
 
-import { use } from 'react';
-import { useStore } from '@/store/useStore';
+import { use, useEffect, useState } from 'react';
+import { getGuestByToken } from '@/lib/supabaseData';
+import { Guest, Event } from '@/types';
 import { Navigation } from 'lucide-react';
 
 const designs = [
@@ -28,10 +29,37 @@ function formatHebrewDate(dateStr: string) {
 
 export default function TablePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
-  const { getGuestByToken, getEventByToken } = useStore();
 
-  const guest = getGuestByToken(token);
-  const event = getEventByToken(token);
+  const [guest, setGuest] = useState<Guest | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getGuestByToken(token).then((result) => {
+      if (result) {
+        setGuest(result.guest);
+        setEvent(result.event);
+      }
+      setLoading(false);
+    });
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#0f0f0f',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          direction: 'rtl',
+        }}
+      >
+        <div style={{ color: '#d4a843', fontSize: '16px' }}>טוען...</div>
+      </div>
+    );
+  }
 
   if (!guest || !event) {
     return (
@@ -54,9 +82,7 @@ export default function TablePage({ params }: { params: Promise<{ token: string 
   }
 
   const design = designs.find((d) => d.id === (event.selectedDesign || 1)) || designs[0];
-  const wazeUrl = event.venueLat && event.venueLng
-    ? `https://waze.com/ul?ll=${event.venueLat},${event.venueLng}&navigate=yes`
-    : `https://waze.com/ul?q=${encodeURIComponent(event.venueAddress)}`;
+  const wazeUrl = `https://waze.com/ul?q=${encodeURIComponent(event.venueAddress)}`;
 
   return (
     <div
