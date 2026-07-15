@@ -39,30 +39,32 @@ function mapGuest(row: any): Guest {
   };
 }
 
-export async function getOrCreateProfile(supabaseUserId: string, email: string): Promise<{ eventId: string }> {
-  // Check if profile exists
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', supabaseUserId).single();
-  if (profile) return { eventId: profile.event_id };
+export async function registerUser(email: string, password: string): Promise<{ userId: string; eventId: string } | null> {
+  // Check if email exists
+  const { data: existing } = await supabase.from('profiles').select('id').eq('email', email).single();
+  if (existing) return null; // email taken
 
-  // Create new event + profile
+  const userId = generateId();
   const eventId = generateId();
+
+  // Create event first
   await supabase.from('events').insert({
-    id: eventId,
-    user_id: supabaseUserId,
-    couple_name1: '',
-    couple_name2: '',
-    date: '',
-    venue_name: '',
-    venue_address: '',
-    selected_design: 1,
+    id: eventId, user_id: userId,
+    couple_name1: '', couple_name2: '', date: '', venue_name: '', venue_address: '', selected_design: 1
   });
+
+  // Create profile
   await supabase.from('profiles').insert({
-    id: supabaseUserId,
-    email,
-    role: 'couple',
-    event_id: eventId,
+    id: userId, email, password, role: 'couple', event_id: eventId
   });
-  return { eventId };
+
+  return { userId, eventId };
+}
+
+export async function loginUser(email: string, password: string): Promise<{ userId: string; eventId: string } | null> {
+  const { data } = await supabase.from('profiles').select('*').eq('email', email).eq('password', password).single();
+  if (!data) return null;
+  return { userId: data.id, eventId: data.event_id };
 }
 
 export async function getEvent(eventId: string): Promise<Event | null> {

@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
-import { supabase } from '@/lib/supabase';
-import { getOrCreateProfile } from '@/lib/supabaseData';
+import { registerUser, loginUser } from '@/lib/supabaseData';
 import { User } from '@/types';
 
 export default function LoginPage() {
@@ -34,58 +33,29 @@ export default function LoginPage() {
         return;
       }
 
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+      const result = await registerUser(email, password);
 
-      if (signUpError) {
-        if (signUpError.message.includes('already registered') || signUpError.message.includes('already been registered')) {
-          setError('כתובת האימייל כבר קיימת במערכת');
-        } else {
-          setError('שגיאה בהרשמה: ' + signUpError.message);
-        }
+      if (!result) {
+        setError('אימייל כבר קיים');
         setLoading(false);
         return;
       }
 
-      if (data.user) {
-        const { eventId } = await getOrCreateProfile(data.user.id, email);
-        const newUser: User = {
-          id: data.user.id,
-          email,
-          password: '',
-          role: 'couple',
-          eventId,
-        };
-        setCurrentUser(newUser);
-        router.push('/dashboard');
-      } else {
-        // Supabase may require email confirmation
-        setError('נשלח אימות לאימייל שלך. אנא אמת את החשבון ונסה להתחבר.');
-      }
+      const user: User = { id: result.userId, email, password: '', role: 'couple', eventId: result.eventId };
+      setCurrentUser(user);
+      router.push('/dashboard');
     } else {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const result = await loginUser(email, password);
 
-      if (signInError) {
-        if (signInError.message.includes('Invalid login credentials') || signInError.message.includes('invalid_credentials')) {
-          setError('אימייל או סיסמה שגויים');
-        } else {
-          setError('שגיאה בכניסה: ' + signInError.message);
-        }
+      if (!result) {
+        setError('אימייל או סיסמה שגויים');
         setLoading(false);
         return;
       }
 
-      if (data.user) {
-        const { eventId } = await getOrCreateProfile(data.user.id, email);
-        const loggedInUser: User = {
-          id: data.user.id,
-          email,
-          password: '',
-          role: 'couple',
-          eventId,
-        };
-        setCurrentUser(loggedInUser);
-        router.push('/dashboard');
-      }
+      const user: User = { id: result.userId, email, password: '', role: 'couple', eventId: result.eventId };
+      setCurrentUser(user);
+      router.push('/dashboard');
     }
 
     setLoading(false);

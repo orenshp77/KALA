@@ -3,54 +3,28 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
-import { supabase } from '@/lib/supabase';
-import { getOrCreateProfile, getEvent, getGuests } from '@/lib/supabaseData';
+import { getEvent, getGuests } from '@/lib/supabaseData';
 import BottomNav from '@/components/BottomNav';
-import { User } from '@/types';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { currentUser, setCurrentUser, setEvent, setGuests } = useStore();
+  const { currentUser, setEvent, setGuests } = useStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Admin users bypass Supabase auth
-    if (currentUser && currentUser.role === 'admin') {
+    if (!currentUser) {
+      if (currentUser !== undefined) router.replace('/login');
+      return;
+    }
+    if (currentUser.role === 'admin') {
       setReady(true);
       return;
     }
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) {
-        // No Supabase session — redirect to login
-        router.replace('/login');
-        return;
-      }
-
-      // Ensure profile exists and get eventId
-      const { eventId } = await getOrCreateProfile(session.user.id, session.user.email || '');
-
-      const user: User = {
-        id: session.user.id,
-        email: session.user.email || '',
-        password: '',
-        role: 'couple',
-        eventId,
-      };
-
-      setCurrentUser(user);
-
-      // Load event and guests into store
-      const [event, guests] = await Promise.all([
-        getEvent(eventId),
-        getGuests(eventId),
-      ]);
-
-      setEvent(event);
-      setGuests(guests);
-      setReady(true);
-    });
-  }, []);
+    // Load data from Supabase
+    getEvent(currentUser.eventId).then((ev) => { if (ev) setEvent(ev); });
+    getGuests(currentUser.eventId).then((gs) => setGuests(gs));
+    setReady(true);
+  }, [currentUser]);
 
   if (!ready) {
     return (

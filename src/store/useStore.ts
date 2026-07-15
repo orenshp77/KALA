@@ -2,7 +2,6 @@
 
 import { create } from 'zustand';
 import { User, Event, Guest } from '@/types';
-import { supabase } from '@/lib/supabase';
 import {
   updateEventInDB,
   addGuestToDB,
@@ -68,7 +67,6 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
 
   logout: () => {
-    supabase.auth.signOut();
     set({ currentUser: null, currentEvent: null, guests: [] });
   },
 
