@@ -21,9 +21,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     // Load data from Supabase
-    getEvent(currentUser.eventId).then((ev) => { if (ev) setEvent(ev); });
+    getEvent(currentUser.eventId).then((ev) => {
+      if (ev) {
+        // If onboarding not complete, redirect
+        if (!ev.coupleName1) {
+          router.replace('/onboarding');
+          return;
+        }
+        setEvent(ev);
+      }
+      setReady(true);
+    });
     getGuests(currentUser.eventId).then((gs) => setGuests(gs));
-    setReady(true);
   }, [currentUser]);
 
   if (!ready) {

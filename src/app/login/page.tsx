@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
-import { registerUser, loginUser } from '@/lib/supabaseData';
+import { registerUser, loginUser, getEvent } from '@/lib/supabaseData';
 import { User } from '@/types';
 
 export default function LoginPage() {
@@ -43,7 +43,7 @@ export default function LoginPage() {
 
       const user: User = { id: result.userId, email, password: '', role: 'couple', eventId: result.eventId };
       setCurrentUser(user);
-      router.push('/dashboard');
+      router.push('/onboarding');
     } else {
       const result = await loginUser(email, password);
 
@@ -55,7 +55,14 @@ export default function LoginPage() {
 
       const user: User = { id: result.userId, email, password: '', role: 'couple', eventId: result.eventId };
       setCurrentUser(user);
-      router.push('/dashboard');
+
+      // Check if onboarding is complete
+      const event = await getEvent(result.eventId);
+      if (event && event.coupleName1) {
+        router.push('/dashboard');
+      } else {
+        router.push('/onboarding');
+      }
     }
 
     setLoading(false);
