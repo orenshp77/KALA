@@ -234,7 +234,7 @@ export default function GuestsPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(0);
 
-  const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/PLACEHOLDER';
+  const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/6bd76b839b104307821710661c745aa9';
 
   const startIOSImport = useCallback(async () => {
     // Generate a unique token
