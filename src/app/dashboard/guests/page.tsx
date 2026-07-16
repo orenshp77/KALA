@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { Guest } from '@/types';
-import { Plus, Trash2, ChevronDown, ChevronUp, X, Upload, Users, UserPlus } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, X, Upload, Users, UserPlus, ClipboardPaste } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function cleanPhone(raw: string): string {
@@ -141,6 +141,87 @@ export default function GuestsPage() {
     e.target.value = '';
   };
 
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [parsedContacts, setParsedContacts] = useState<{ name: string; phone: string }[]>([]);
+
+  const parseContacts = (text: string) => {
+    const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+    const results: { name: string; phone: string }[] = [];
+
+    for (const line of lines) {
+      // Try common formats:
+      // "שם 0501234567"  "שם, 0501234567"  "שם - 0501234567"  "0501234567 שם"
+      // Tab separated (from Excel): "שם\t0501234567"
+
+      // Split by tab, comma, dash, or multiple spaces
+      const parts = line.split(/[\t,\-–—|]+/).map((p) => p.trim()).filter((p) => p);
+
+      let name = '';
+      let phone = '';
+
+      for (const part of parts) {
+        // Check if this part looks like a phone number (has 7+ digits)
+        const digits = part.replace(/\D/g, '');
+        if (digits.length >= 7) {
+          phone = part;
+        } else if (part.length >= 2 && !phone) {
+          // It's probably a name
+          name = name ? `${name} ${part}` : part;
+        } else if (part.length >= 2) {
+          name = name ? `${name} ${part}` : part;
+        }
+      }
+
+      // If no split worked, try to find phone number anywhere in the line
+      if (!phone) {
+        const phoneMatch = line.match(/([\d\-\+\(\)\s]{7,})/);
+        if (phoneMatch) {
+          phone = phoneMatch[1].trim();
+          name = line.replace(phoneMatch[0], '').replace(/[\t,\-–—|]/g, '').trim();
+        }
+      }
+
+      if (name && phone) {
+        const cleanedPhone = cleanPhone(phone);
+        const exists = guests.some((g) => g.phone === cleanedPhone && g.eventId === currentUser?.eventId);
+        if (!exists && !results.some((r) => cleanPhone(r.phone) === cleanedPhone)) {
+          results.push({ name, phone });
+        }
+      }
+    }
+    return results;
+  };
+
+  const handlePasteChange = (text: string) => {
+    setPasteText(text);
+    if (text.trim()) {
+      setParsedContacts(parseContacts(text));
+    } else {
+      setParsedContacts([]);
+    }
+  };
+
+  const handlePasteImport = async () => {
+    if (parsedContacts.length === 0) return;
+    setImporting(true);
+    let added = 0;
+    for (const c of parsedContacts) {
+      await addGuest({
+        eventId: currentUser!.eventId,
+        name: c.name,
+        phone: cleanPhone(c.phone),
+        guestsCount: 1,
+      });
+      added++;
+    }
+    toast.success(`${added} אנשי קשר נוספו`);
+    setPasteText('');
+    setParsedContacts([]);
+    setShowPaste(false);
+    setImporting(false);
+  };
+
   const confirmed = eventGuests.filter((g) => g.status === 'confirmed').length;
   const total = eventGuests.length;
 
@@ -182,6 +263,25 @@ export default function GuestsPage() {
           <Users size={18} />
           {importing ? 'מייבא...' : 'ייבוא אנשי קשר'}
         </button>
+        <button
+          onClick={() => setShowPaste(true)}
+          style={{
+            height: '52px',
+            background: '#1a1a1a',
+            border: '1px solid #d4a843',
+            borderRadius: '14px',
+            color: '#d4a843',
+            fontSize: '15px',
+            fontWeight: '700',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
+        >
+          <ClipboardPaste size={18} />
+          הדבק רשימה
+        </button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <button
             onClick={handleUploadFile}
@@ -207,11 +307,11 @@ export default function GuestsPage() {
             style={{
               height: '44px',
               background: '#1a1a1a',
-              border: '1px solid #d4a843',
+              border: '1px solid #2a2a2a',
               borderRadius: '12px',
-              color: '#d4a843',
+              color: '#888',
               fontSize: '13px',
-              fontWeight: '700',
+              fontWeight: '600',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -224,6 +324,85 @@ export default function GuestsPage() {
         </div>
       </div>
       <input ref={fileRef} type="file" accept=".vcf,.csv,text/vcard,text/x-vcard,text/directory" onChange={handleFileImport} style={{ display: 'none' }} />
+
+      {/* Paste modal */}
+      {showPaste && (
+        <div onClick={() => setShowPaste(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 999, padding: '20px', paddingTop: '60px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#1a1a1a', borderRadius: '20px', padding: '20px', width: '100%', maxWidth: '390px', border: '1px solid #2a2a2a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#d4a843' }}>הדבק רשימה</div>
+              <button onClick={() => setShowPaste(false)} style={{ width: '32px', height: '32px', background: '#2a2a2a', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}>
+                <X size={14} color="#888" />
+              </button>
+            </div>
+
+            <div style={{ fontSize: '13px', color: '#888', marginBottom: '12px', lineHeight: '1.6' }}>
+              הדביקו רשימה מ-Excel, פתקים, וואטסאפ או כל מקור אחר.<br />
+              <span style={{ color: '#d4a843' }}>פורמט: שם ומספר טלפון בכל שורה</span>
+            </div>
+
+            <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px', background: '#111', padding: '10px', borderRadius: '10px', direction: 'rtl', lineHeight: '1.8' }}>
+              <div>דוגמאות:</div>
+              <div style={{ direction: 'ltr', textAlign: 'left', fontFamily: 'monospace', fontSize: '11px' }}>
+                אורן כהן 0501234567<br />
+                מיכל לוי, 052-9876543<br />
+                דוד ישראלי    054-1112233
+              </div>
+            </div>
+
+            <textarea
+              value={pasteText}
+              onChange={(e) => handlePasteChange(e.target.value)}
+              placeholder="הדביקו כאן את הרשימה..."
+              style={{
+                width: '100%',
+                minHeight: '150px',
+                background: '#0f0f0f',
+                border: '1px solid #2a2a2a',
+                borderRadius: '12px',
+                color: '#fff',
+                fontSize: '14px',
+                padding: '14px',
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                direction: 'rtl',
+              }}
+            />
+
+            {/* Preview parsed contacts */}
+            {parsedContacts.length > 0 && (
+              <div style={{ marginTop: '12px' }}>
+                <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: '600', marginBottom: '8px' }}>
+                  זוהו {parsedContacts.length} אנשי קשר:
+                </div>
+                <div style={{ maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {parsedContacts.map((c, i) => (
+                    <div key={i} style={{ fontSize: '13px', color: '#ccc', display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#111', borderRadius: '8px' }}>
+                      <span>{c.name}</span>
+                      <span style={{ color: '#888', direction: 'ltr' }}>{c.phone}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pasteText.trim() && parsedContacts.length === 0 && (
+              <div style={{ marginTop: '12px', fontSize: '13px', color: '#ef4444' }}>
+                לא זוהו אנשי קשר. ודאו שכל שורה מכילה שם ומספר טלפון.
+              </div>
+            )}
+
+            <button
+              className="btn-primary"
+              onClick={handlePasteImport}
+              disabled={parsedContacts.length === 0 || importing}
+              style={{ marginTop: '16px', opacity: parsedContacts.length === 0 ? 0.5 : 1 }}
+            >
+              {importing ? 'מייבא...' : `ייבא ${parsedContacts.length} אנשי קשר`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add form */}
       {showAdd && (
