@@ -234,13 +234,11 @@ export default function GuestsPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(0);
 
-  const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/6bd76b839b104307821710661c745aa9';
+  const SHORTCUT_INSTALL_URL = 'https://www.icloud.com/shortcuts/6bd76b839b104307821710661c745aa9';
 
   const startIOSImport = useCallback(async () => {
-    // Generate a unique token
     const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 18) + Date.now().toString(36);
 
-    // Save to Supabase import_sessions table
     const { error } = await supabase.from('import_sessions').insert({
       id: token,
       token,
@@ -261,6 +259,10 @@ export default function GuestsPage() {
     setShowIOSImport(true);
     setIosPolling(true);
     pollStartRef.current = Date.now();
+
+    // Try to open the shortcut directly with the token as input
+    const shortcutName = encodeURIComponent('קבלת תוכן של כתובת אינטרנט');
+    window.location.href = `shortcuts://run-shortcut?name=${shortcutName}&input=text&text=${token}`;
   }, [currentUser?.eventId]);
 
   // Polling effect
@@ -556,66 +558,62 @@ export default function GuestsPage() {
             </div>
 
             {iosContacts.length === 0 ? (
-              /* Instructions + waiting state */
               <div>
-                {/* Step 1 */}
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '16px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#d4a843', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>1</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>לחצו על הכפתור למטה להתקנת כלי הייבוא (פעם אחת בלבד)</div>
-                    <a
-                      href={SHORTCUT_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        height: '48px',
-                        minHeight: '44px',
-                        background: '#d4a843',
-                        borderRadius: '12px',
-                        color: '#000',
-                        fontSize: '15px',
-                        fontWeight: '700',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <Smartphone size={18} />
-                      התקן כלי ייבוא
-                    </a>
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ fontSize: '14px', color: '#ccc', lineHeight: '1.6' }}>
+                    הכלי נפתח אוטומטית.<br/>
+                    אם לא נפתח — לחצו למטה להתקנה:
                   </div>
                 </div>
 
-                {/* Step 2 */}
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '20px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#d4a843', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>2</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff' }}>הפעילו את הכלי מהמסך הראשי</div>
-                    <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>הקיצור ישלח את אנשי הקשר ויחזיר אתכם לכאן</div>
-                  </div>
-                </div>
+                <a
+                  href={SHORTCUT_INSTALL_URL}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    height: '52px',
+                    minHeight: '44px',
+                    background: '#d4a843',
+                    borderRadius: '14px',
+                    color: '#000',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    textDecoration: 'none',
+                    marginBottom: '16px',
+                  }}
+                >
+                  <Smartphone size={18} />
+                  התקן כלי ייבוא (פעם אחת)
+                </a>
 
-                {/* Token display for shortcut */}
-                {iosToken && (
-                  <div style={{ background: '#111', borderRadius: '10px', padding: '12px', marginBottom: '16px', border: '1px solid #2a2a2a' }}>
-                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>קוד ייבוא (להעתקה לקיצור):</div>
-                    <div style={{ fontSize: '13px', color: '#d4a843', fontFamily: 'monospace', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left' }}>{iosToken}</div>
-                  </div>
-                )}
+                <button
+                  onClick={() => {
+                    if (iosToken) {
+                      const shortcutName = encodeURIComponent('קבלת תוכן של כתובת אינטרנט');
+                      window.location.href = `shortcuts://run-shortcut?name=${shortcutName}&input=text&text=${iosToken}`;
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '48px',
+                    background: '#1a1a1a',
+                    border: '1px solid #d4a843',
+                    borderRadius: '14px',
+                    color: '#d4a843',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '20px',
+                  }}
+                >
+                  הפעל שוב
+                </button>
 
                 {/* Waiting animation */}
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', color: '#888', fontSize: '14px' }}>
-                    <div style={{
-                      width: '20px',
-                      height: '20px',
-                      border: '2px solid #d4a84333',
-                      borderTopColor: '#d4a843',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite',
-                    }} />
+                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} color="#d4a843" />
                     ממתין לאנשי קשר...
                   </div>
                   <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
