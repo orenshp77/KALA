@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '@/store/useStore';
 import { Guest } from '@/types';
-import { Plus, Trash2, ChevronDown, ChevronUp, X, Upload, Users, UserPlus, ClipboardPaste } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, X, Upload, Users, UserPlus, ClipboardPaste, Smartphone, Check, Search, CheckSquare, Square, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
 
 function cleanPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -222,6 +223,138 @@ export default function GuestsPage() {
     setImporting(false);
   };
 
+  // --- iOS Shortcut Import ---
+  const [showIOSImport, setShowIOSImport] = useState(false);
+  const [iosToken, setIosToken] = useState<string | null>(null);
+  const [iosPolling, setIosPolling] = useState(false);
+  const [iosContacts, setIosContacts] = useState<{ name: string; phone: string }[]>([]);
+  const [iosSelected, setIosSelected] = useState<Set<number>>(new Set());
+  const [iosSearch, setIosSearch] = useState('');
+  const [iosImporting, setIosImporting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollStartRef = useRef<number>(0);
+
+  const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/PLACEHOLDER';
+
+  const startIOSImport = useCallback(async () => {
+    // Generate a unique token
+    const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 18) + Date.now().toString(36);
+
+    // Save to Supabase import_sessions table
+    const { error } = await supabase.from('import_sessions').insert({
+      id: token,
+      token,
+      event_id: currentUser?.eventId || '',
+      contacts: '[]',
+      status: 'waiting',
+    });
+
+    if (error) {
+      toast.error('שגיאה ביצירת הפגישה');
+      return;
+    }
+
+    setIosToken(token);
+    setIosContacts([]);
+    setIosSelected(new Set());
+    setIosSearch('');
+    setShowIOSImport(true);
+    setIosPolling(true);
+    pollStartRef.current = Date.now();
+  }, [currentUser?.eventId]);
+
+  // Polling effect
+  useEffect(() => {
+    if (!iosPolling || !iosToken) return;
+
+    const poll = async () => {
+      // Stop after 5 minutes
+      if (Date.now() - pollStartRef.current > 5 * 60 * 1000) {
+        setIosPolling(false);
+        if (pollRef.current) clearInterval(pollRef.current);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/import-contacts?token=${iosToken}`);
+        const data = await res.json();
+        if (data.status === 'ready' && Array.isArray(data.contacts)) {
+          setIosContacts(data.contacts);
+          // Select all by default
+          setIosSelected(new Set(data.contacts.map((_: unknown, i: number) => i)));
+          setIosPolling(false);
+          if (pollRef.current) clearInterval(pollRef.current);
+        }
+      } catch {
+        // ignore network errors, keep polling
+      }
+    };
+
+    pollRef.current = setInterval(poll, 3000);
+    // Also poll immediately
+    poll();
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [iosPolling, iosToken]);
+
+  const closeIOSImport = () => {
+    setShowIOSImport(false);
+    setIosPolling(false);
+    if (pollRef.current) clearInterval(pollRef.current);
+    setIosToken(null);
+    setIosContacts([]);
+    setIosSelected(new Set());
+    setIosSearch('');
+  };
+
+  const toggleIOSContact = (index: number) => {
+    setIosSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const selectAllIOS = () => {
+    setIosSelected(new Set(iosContacts.map((_, i) => i)));
+  };
+
+  const clearAllIOS = () => {
+    setIosSelected(new Set());
+  };
+
+  const filteredIOSContacts = iosContacts.filter((c) =>
+    c.name?.toLowerCase().includes(iosSearch.toLowerCase()) ||
+    c.phone?.includes(iosSearch)
+  );
+
+  const handleIOSImportSelected = async () => {
+    if (iosSelected.size === 0) return;
+    setIosImporting(true);
+    let added = 0;
+    for (const idx of Array.from(iosSelected)) {
+      const c = iosContacts[idx];
+      if (!c?.name || !c?.phone) continue;
+      const phone = cleanPhone(c.phone);
+      const exists = guests.some((g) => g.phone === phone && g.eventId === currentUser?.eventId);
+      if (!exists) {
+        await addGuest({
+          eventId: currentUser!.eventId,
+          name: c.name,
+          phone,
+          guestsCount: 1,
+        });
+        added++;
+      }
+    }
+    toast.success(`${added} אנשי קשר נוספו`);
+    setIosImporting(false);
+    closeIOSImport();
+  };
+
   const confirmed = eventGuests.filter((g) => g.status === 'confirmed').length;
   const total = eventGuests.length;
 
@@ -244,7 +377,13 @@ export default function GuestsPage() {
       {/* Import buttons */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
         <button
-          onClick={handleSelectContacts}
+          onClick={() => {
+            if (isIOS() && !hasContactPicker()) {
+              startIOSImport();
+            } else {
+              handleSelectContacts();
+            }
+          }}
           disabled={importing}
           style={{
             height: '52px',
@@ -260,7 +399,7 @@ export default function GuestsPage() {
             opacity: importing ? 0.7 : 1,
           }}
         >
-          <Users size={18} />
+          {isIOS() && !hasContactPicker() ? <Smartphone size={18} /> : <Users size={18} />}
           {importing ? 'מייבא...' : 'ייבוא אנשי קשר'}
         </button>
         <button
@@ -400,6 +539,229 @@ export default function GuestsPage() {
             >
               {importing ? 'מייבא...' : `ייבא ${parsedContacts.length} אנשי קשר`}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* iOS Shortcut Import Modal */}
+      {showIOSImport && (
+        <div onClick={closeIOSImport} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 999, padding: '20px', paddingTop: '40px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#1a1a1a', borderRadius: '20px', padding: '20px', width: '100%', maxWidth: '390px', border: '1px solid #2a2a2a' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: '#d4a843' }}>ייבוא אנשי קשר מהאייפון</div>
+              <button onClick={closeIOSImport} style={{ width: '36px', height: '36px', background: '#2a2a2a', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', minHeight: '44px', minWidth: '44px' }}>
+                <X size={16} color="#888" />
+              </button>
+            </div>
+
+            {iosContacts.length === 0 ? (
+              /* Instructions + waiting state */
+              <div>
+                {/* Step 1 */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#d4a843', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>1</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>לחצו על הכפתור למטה להתקנת כלי הייבוא (פעם אחת בלבד)</div>
+                    <a
+                      href={SHORTCUT_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        height: '48px',
+                        minHeight: '44px',
+                        background: '#d4a843',
+                        borderRadius: '12px',
+                        color: '#000',
+                        fontSize: '15px',
+                        fontWeight: '700',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <Smartphone size={18} />
+                      התקן כלי ייבוא
+                    </a>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '20px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#d4a843', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>2</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff' }}>הפעילו את הכלי מהמסך הראשי</div>
+                    <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>הקיצור ישלח את אנשי הקשר ויחזיר אתכם לכאן</div>
+                  </div>
+                </div>
+
+                {/* Token display for shortcut */}
+                {iosToken && (
+                  <div style={{ background: '#111', borderRadius: '10px', padding: '12px', marginBottom: '16px', border: '1px solid #2a2a2a' }}>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>קוד ייבוא (להעתקה לקיצור):</div>
+                    <div style={{ fontSize: '13px', color: '#d4a843', fontFamily: 'monospace', wordBreak: 'break-all', direction: 'ltr', textAlign: 'left' }}>{iosToken}</div>
+                  </div>
+                )}
+
+                {/* Waiting animation */}
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', color: '#888', fontSize: '14px' }}>
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      border: '2px solid #d4a84333',
+                      borderTopColor: '#d4a843',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                    }} />
+                    ממתין לאנשי קשר...
+                  </div>
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </div>
+              </div>
+            ) : (
+              /* Contacts received - selection mode */
+              <div>
+                {/* Success header */}
+                <div style={{ background: '#0a2a0a', borderRadius: '12px', padding: '14px', marginBottom: '16px', border: '1px solid #22c55e33', textAlign: 'center' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#22c55e' }}>
+                    נמצאו {iosContacts.length} אנשי קשר!
+                  </div>
+                </div>
+
+                {/* Search */}
+                <div style={{ position: 'relative', marginBottom: '12px' }}>
+                  <Search size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
+                  <input
+                    value={iosSearch}
+                    onChange={(e) => setIosSearch(e.target.value)}
+                    placeholder="חיפוש..."
+                    style={{
+                      width: '100%',
+                      height: '44px',
+                      background: '#0f0f0f',
+                      border: '1px solid #2a2a2a',
+                      borderRadius: '10px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      paddingRight: '36px',
+                      paddingLeft: '12px',
+                    }}
+                  />
+                </div>
+
+                {/* Select all / clear all */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <button
+                    onClick={selectAllIOS}
+                    style={{
+                      flex: 1,
+                      height: '44px',
+                      background: '#111',
+                      border: '1px solid #2a2a2a',
+                      borderRadius: '10px',
+                      color: '#d4a843',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <CheckSquare size={14} />
+                    בחר הכל
+                  </button>
+                  <button
+                    onClick={clearAllIOS}
+                    style={{
+                      flex: 1,
+                      height: '44px',
+                      background: '#111',
+                      border: '1px solid #2a2a2a',
+                      borderRadius: '10px',
+                      color: '#888',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Square size={14} />
+                    נקה הכל
+                  </button>
+                </div>
+
+                {/* Contacts list */}
+                <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' }}>
+                  {filteredIOSContacts.map((c) => {
+                    const realIndex = iosContacts.indexOf(c);
+                    const selected = iosSelected.has(realIndex);
+                    return (
+                      <button
+                        key={realIndex}
+                        onClick={() => toggleIOSContact(realIndex)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          minHeight: '44px',
+                          background: selected ? '#1a2a1a' : '#111',
+                          borderRadius: '10px',
+                          border: selected ? '1px solid #22c55e33' : '1px solid transparent',
+                          textAlign: 'right',
+                          width: '100%',
+                        }}
+                      >
+                        <div style={{ width: '20px', height: '20px', borderRadius: '4px', border: selected ? '2px solid #22c55e' : '2px solid #555', background: selected ? '#22c55e' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {selected && <Check size={12} color="#fff" />}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', color: '#fff', fontWeight: '500' }}>{c.name}</div>
+                          <div style={{ fontSize: '12px', color: '#888', direction: 'ltr', textAlign: 'right' }}>{c.phone}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Import button */}
+                <button
+                  onClick={handleIOSImportSelected}
+                  disabled={iosSelected.size === 0 || iosImporting}
+                  style={{
+                    width: '100%',
+                    height: '52px',
+                    minHeight: '44px',
+                    background: iosSelected.size === 0 ? '#333' : '#d4a843',
+                    borderRadius: '14px',
+                    color: iosSelected.size === 0 ? '#888' : '#000',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    border: 'none',
+                    opacity: iosImporting ? 0.7 : 1,
+                  }}
+                >
+                  {iosImporting ? (
+                    <>
+                      <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                      מייבא...
+                    </>
+                  ) : (
+                    `ייבא ${iosSelected.size} נבחרים`
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
