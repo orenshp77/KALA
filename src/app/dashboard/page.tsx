@@ -2,7 +2,8 @@
 
 import { useStore } from '@/store/useStore';
 import Link from 'next/link';
-import { Calendar, MapPin, Users, ChevronLeft } from 'lucide-react';
+import { Calendar, MapPin, Users, ChevronLeft, Copy, Link2 } from 'lucide-react';
+import { useState } from 'react';
 
 function formatHebrewDate(dateStr: string) {
   if (!dateStr) return 'תאריך לא נקבע';
@@ -23,6 +24,16 @@ export default function DashboardPage() {
   const { currentUser, currentEvent, guests } = useStore();
   const event = currentEvent;
   const eventGuests = guests.filter((g) => g.eventId === currentUser?.eventId);
+
+  const [eventUrlCopied, setEventUrlCopied] = useState(false);
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://kala.app';
+  const eventUrl = currentUser?.eventId ? `${baseUrl}/e/${currentUser.eventId}` : '';
+
+  const copyEventUrl = async () => {
+    await navigator.clipboard.writeText(eventUrl).catch(() => {});
+    setEventUrlCopied(true);
+    setTimeout(() => setEventUrlCopied(false), 2000);
+  };
 
   const confirmed = eventGuests.filter((g) => g.status === 'confirmed');
   const pending = eventGuests.filter((g) => g.status === 'pending');
@@ -87,6 +98,52 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Event public URL */}
+      {eventUrl && (
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <Link2 size={16} color="#d4a843" />
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#d4a843' }}>קישור ציבורי לאירוע</div>
+          </div>
+          <div
+            style={{
+              background: '#0f0f0f',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '11px',
+              color: '#888',
+              wordBreak: 'break-all',
+              direction: 'ltr',
+              textAlign: 'left',
+              marginBottom: '10px',
+            }}
+          >
+            {eventUrl}
+          </div>
+          <button
+            onClick={copyEventUrl}
+            style={{
+              width: '100%',
+              height: '40px',
+              background: eventUrlCopied ? '#22c55e' : '#2a2a2a',
+              borderRadius: '10px',
+              color: eventUrlCopied ? '#fff' : '#d4a843',
+              fontSize: '13px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <Copy size={14} />
+            {eventUrlCopied ? 'הועתק!' : 'העתק קישור'}
+          </button>
+        </div>
+      )}
 
       {/* Quick links */}
       <div style={{ fontSize: '15px', fontWeight: '600', color: '#888', marginBottom: '12px' }}>פעולות מהירות</div>

@@ -32,9 +32,66 @@ export default function QrPage() {
     a.click();
   };
 
+  const eventUrl = currentUser?.eventId ? `${baseUrl}/e/${currentUser.eventId}` : '';
+  const [eventUrlCopied, setEventUrlCopied] = useState(false);
+
+  const copyEventUrl = async () => {
+    await navigator.clipboard.writeText(eventUrl).catch(() => {});
+    setEventUrlCopied(true);
+    setTimeout(() => setEventUrlCopied(false), 2000);
+  };
+
   return (
     <div className="screen" style={{ padding: '24px 16px 100px' }}>
       <h1 className="section-title">QR ושיתוף</h1>
+
+      {/* Public event URL */}
+      {eventUrl && (
+        <div className="card" style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '14px', fontWeight: '700', color: '#d4a843', marginBottom: '12px' }}>
+            קישור ציבורי לאירוע
+          </div>
+          <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
+            שתפו קישור זה בכל מקום - מתאים לסטורי, הודעה קבוצתית ועוד
+          </div>
+          <div
+            style={{
+              background: '#0f0f0f',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '12px',
+              color: '#888',
+              wordBreak: 'break-all',
+              direction: 'ltr',
+              textAlign: 'left',
+              marginBottom: '12px',
+            }}
+          >
+            {eventUrl}
+          </div>
+          <button
+            onClick={copyEventUrl}
+            style={{
+              width: '100%',
+              height: '44px',
+              background: eventUrlCopied ? '#22c55e' : '#d4a843',
+              borderRadius: '10px',
+              color: '#0f0f0f',
+              fontSize: '14px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <Copy size={14} />
+            {eventUrlCopied ? 'הועתק!' : 'העתק קישור אירוע'}
+          </button>
+        </div>
+      )}
 
       {/* Guest selector */}
       <div style={{ marginBottom: '20px' }}>

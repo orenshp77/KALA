@@ -133,6 +133,11 @@ export async function respondToInviteInDB(token: string, status: 'confirmed' | '
   return data ? mapGuest(data) : null;
 }
 
+export async function getPublicEvent(eventId: string): Promise<Event | null> {
+  const { data } = await supabase.from('events').select('*').eq('id', eventId).single();
+  return data ? mapEvent(data) : null;
+}
+
 export async function getAllEventsAdmin(): Promise<{ profiles: any[]; events: Event[]; guests: Guest[] }> {
   const { data: profiles } = await supabase.from('profiles').select('*').eq('role', 'couple');
   const { data: events } = await supabase.from('events').select('*');
