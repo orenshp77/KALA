@@ -3,7 +3,8 @@
 import { useState, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { Guest } from '@/types';
-import { Plus, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, X, Upload, Users, UserPlus } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 function cleanPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -60,26 +61,41 @@ export default function GuestsPage() {
     setAddingGuest(false);
   };
 
-  const handleImportContacts = async () => {
+  const [importing, setImporting] = useState(false);
+
+  const hasContactPicker = () => {
+    try { return 'contacts' in navigator && 'ContactsManager' in window; } catch { return false; }
+  };
+
+  const handleSelectContacts = async () => {
+    if (!hasContactPicker()) {
+      toast.error('הדפדפן לא תומך בייבוא אנשי קשר. נסה להעלות קובץ.');
+      fileRef.current?.click();
+      return;
+    }
     try {
-      if ('contacts' in navigator && 'ContactsManager' in window) {
-        const contacts = await (navigator as unknown as { contacts: { select: (fields: string[], opts: object) => Promise<Array<{ name: string[]; tel: string[] }>> } }).contacts.select(['name', 'tel'], { multiple: true });
-        for (const c of contacts) {
-          if (c.name && c.tel && c.tel[0]) {
-            await addGuest({
-              eventId: currentUser!.eventId,
-              name: c.name[0],
-              phone: cleanPhone(c.tel[0]),
-              guestsCount: 1,
-            });
+      setImporting(true);
+      const contacts = await (navigator as unknown as { contacts: { select: (fields: string[], opts: object) => Promise<Array<{ name: string[]; tel: string[] }>> } }).contacts.select(['name', 'tel'], { multiple: true });
+      let added = 0;
+      for (const c of contacts) {
+        if (c.name?.[0] && c.tel?.[0]) {
+          const phone = cleanPhone(c.tel[0]);
+          const exists = guests.some((g) => g.phone === phone && g.eventId === currentUser?.eventId);
+          if (!exists) {
+            await addGuest({ eventId: currentUser!.eventId, name: c.name[0], phone, guestsCount: 1 });
+            added++;
           }
         }
-      } else {
-        fileRef.current?.click();
       }
+      toast.success(`${added} אנשי קשר נוספו`);
     } catch {
-      fileRef.current?.click();
+      // user cancelled
     }
+    setImporting(false);
+  };
+
+  const handleUploadFile = () => {
+    fileRef.current?.click();
   };
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,43 +157,67 @@ export default function GuestsPage() {
       />
 
       {/* Import buttons */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
         <button
-          onClick={handleImportContacts}
+          onClick={handleSelectContacts}
+          disabled={importing}
           style={{
-            height: '44px',
-            background: '#1a1a1a',
-            border: '1px solid #2a2a2a',
-            borderRadius: '12px',
-            color: '#d4a843',
-            fontSize: '13px',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-          }}
-        >
-          📱 ייבא אנשי קשר
-        </button>
-        <button
-          onClick={() => setShowAdd(true)}
-          style={{
-            height: '44px',
+            height: '52px',
             background: '#d4a843',
-            borderRadius: '12px',
+            borderRadius: '14px',
             color: '#000',
-            fontSize: '13px',
+            fontSize: '15px',
             fontWeight: '700',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '6px',
+            gap: '8px',
+            opacity: importing ? 0.7 : 1,
           }}
         >
-          <Plus size={16} />
-          הוסף ידנית
+          <Users size={18} />
+          {importing ? 'מייבא...' : 'בחר אנשי קשר מהטלפון'}
         </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <button
+            onClick={handleUploadFile}
+            style={{
+              height: '44px',
+              background: '#1a1a1a',
+              border: '1px solid #2a2a2a',
+              borderRadius: '12px',
+              color: '#888',
+              fontSize: '13px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            <Upload size={14} />
+            העלה קובץ
+          </button>
+          <button
+            onClick={() => setShowAdd(true)}
+            style={{
+              height: '44px',
+              background: '#1a1a1a',
+              border: '1px solid #d4a843',
+              borderRadius: '12px',
+              color: '#d4a843',
+              fontSize: '13px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            <UserPlus size={14} />
+            הוסף ידנית
+          </button>
+        </div>
       </div>
       <input ref={fileRef} type="file" accept=".vcf,.csv" onChange={handleFileImport} style={{ display: 'none' }} />
 
