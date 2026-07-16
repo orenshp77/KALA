@@ -67,9 +67,13 @@ export default function GuestsPage() {
     try { return 'contacts' in navigator && 'ContactsManager' in window; } catch { return false; }
   };
 
+  const isIOS = () => {
+    if (typeof navigator === 'undefined') return false;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  };
+
   const handleSelectContacts = async () => {
     if (!hasContactPicker()) {
-      toast.error('הדפדפן לא תומך בייבוא אנשי קשר. נסה להעלות קובץ.');
       fileRef.current?.click();
       return;
     }
@@ -175,8 +179,8 @@ export default function GuestsPage() {
             opacity: importing ? 0.7 : 1,
           }}
         >
-          <Users size={18} />
-          {importing ? 'מייבא...' : 'בחר אנשי קשר מהטלפון'}
+          {isIOS() ? <Upload size={18} /> : <Users size={18} />}
+          {importing ? 'מייבא...' : isIOS() ? 'העלה אנשי קשר מהטלפון' : 'בחר אנשי קשר מהטלפון'}
         </button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <button
