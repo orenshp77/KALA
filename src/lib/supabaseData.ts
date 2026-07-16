@@ -157,6 +157,10 @@ export async function updateProfileEmail(profileId: string, newEmail: string): P
   await supabase.from('profiles').update({ email: newEmail }).eq('id', profileId);
 }
 
+export async function updateProfilePassword(profileId: string, newPassword: string): Promise<void> {
+  await supabase.from('profiles').update({ password: newPassword }).eq('id', profileId);
+}
+
 export async function updateGuestRoundSentBatch(eventId: string, round: 1 | 2 | 3): Promise<void> {
   // Round 1: update guests where round_sent = 0
   // Round 2: update guests where round_sent = 1 and status = 'pending'

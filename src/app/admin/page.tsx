@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
-import { getAllEventsAdmin, deleteUserFromDB, updateProfileEmail } from '@/lib/supabaseData';
+import { getAllEventsAdmin, deleteUserFromDB, updateProfileEmail, updateProfilePassword } from '@/lib/supabaseData';
 import { Event, Guest } from '@/types';
-import { LogOut, Users, CheckCircle, X, Pencil, Trash2 } from 'lucide-react';
+import { LogOut, Users, CheckCircle, X, Pencil, Trash2, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ProfileRow { id: string; email: string; role: string; event_id: string; }
 
 type Modal =
   | { type: 'delete'; profileId: string; email: string }
-  | { type: 'edit'; profileId: string; email: string };
+  | { type: 'edit'; profileId: string; email: string }
+  | { type: 'password'; profileId: string; email: string };
 
 export default function AdminPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function AdminPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [modal, setModal] = useState<Modal | null>(null);
   const [editEmail, setEditEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadData = () => {
@@ -79,6 +81,20 @@ export default function AdminPage() {
     setModal(null);
     setSaving(false);
     loadData();
+  };
+
+  const handlePasswordSave = async () => {
+    if (!modal || modal.type !== 'password') return;
+    if (newPassword.trim().length < 6) {
+      toast.error('סיסמה חייבת להכיל לפחות 6 תווים');
+      return;
+    }
+    setSaving(true);
+    await updateProfilePassword(modal.profileId, newPassword.trim());
+    toast.success('הסיסמה עודכנה');
+    setModal(null);
+    setNewPassword('');
+    setSaving(false);
   };
 
   return (
@@ -147,6 +163,12 @@ export default function AdminPage() {
                       <Pencil size={14} color="#d4a843" />
                     </button>
                     <button
+                      onClick={() => { setNewPassword(''); setModal({ type: 'password', profileId: profile.id, email: profile.email }); }}
+                      style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#1a1a1a', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                      <KeyRound size={14} color="#22c55e" />
+                    </button>
+                    <button
                       onClick={() => setModal({ type: 'delete', profileId: profile.id, email: profile.email })}
                       style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#1a1a1a', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                     >
@@ -200,7 +222,7 @@ export default function AdminPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: '700' }}>
-                  {modal.type === 'delete' ? '🗑 מחיקת משתמש' : '✏️ עריכת משתמש'}
+                  {modal.type === 'delete' ? '🗑 מחיקת משתמש' : modal.type === 'password' ? '🔑 שינוי סיסמה' : '✏️ עריכת משתמש'}
                 </div>
                 <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{modal.email}</div>
               </div>
@@ -222,6 +244,27 @@ export default function AdminPage() {
                   style={{ background: '#ef4444' }}
                 >
                   {saving ? 'מוחק...' : 'מחק משתמש'}
+                </button>
+              </>
+            ) : modal.type === 'password' ? (
+              <>
+                <label className="label">סיסמה חדשה</label>
+                <input
+                  className="input-field"
+                  type="text"
+                  placeholder="מינימום 6 תווים"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoFocus
+                  style={{ marginBottom: '20px', direction: 'ltr', textAlign: 'left' }}
+                />
+                <button
+                  className="btn-primary"
+                  onClick={handlePasswordSave}
+                  disabled={saving}
+                  style={{ background: '#22c55e' }}
+                >
+                  {saving ? 'שומר...' : 'עדכן סיסמה'}
                 </button>
               </>
             ) : (
