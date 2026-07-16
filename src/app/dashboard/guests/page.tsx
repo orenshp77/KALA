@@ -72,15 +72,9 @@ export default function GuestsPage() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent);
   };
 
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
-
   const handleSelectContacts = async () => {
     if (!hasContactPicker()) {
-      if (isIOS()) {
-        setShowIOSGuide(true);
-      } else {
-        fileRef.current?.click();
-      }
+      fileRef.current?.click();
       return;
     }
     try {
@@ -185,8 +179,8 @@ export default function GuestsPage() {
             opacity: importing ? 0.7 : 1,
           }}
         >
-          {isIOS() ? <Upload size={18} /> : <Users size={18} />}
-          {importing ? 'מייבא...' : isIOS() ? 'העלה אנשי קשר מהטלפון' : 'בחר אנשי קשר מהטלפון'}
+          <Users size={18} />
+          {importing ? 'מייבא...' : 'ייבוא אנשי קשר'}
         </button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <button
@@ -229,38 +223,7 @@ export default function GuestsPage() {
           </button>
         </div>
       </div>
-      <input ref={fileRef} type="file" accept=".vcf,.csv,text/vcard,text/x-vcard" onChange={handleFileImport} style={{ display: 'none' }} />
-
-      {/* iOS Guide Modal */}
-      {showIOSGuide && (
-        <div onClick={() => setShowIOSGuide(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '20px' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#1a1a1a', borderRadius: '20px', padding: '24px', width: '100%', border: '1px solid #2a2a2a' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '16px', fontWeight: '700', color: '#d4a843' }}>ייבוא אנשי קשר מאייפון</div>
-              <button onClick={() => setShowIOSGuide(false)} style={{ width: '32px', height: '32px', background: '#2a2a2a', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}>
-                <X size={14} color="#888" />
-              </button>
-            </div>
-            <div style={{ fontSize: '14px', color: '#ccc', lineHeight: '1.8', marginBottom: '20px' }}>
-              <div style={{ marginBottom: '8px', fontWeight: '600' }}>איך מייצאים אנשי קשר?</div>
-              <div>1. פתחו את אפליקציית <strong>אנשי קשר</strong> באייפון</div>
-              <div>2. לחצו על <strong>רשימות</strong> למעלה</div>
-              <div>3. לחצו על <strong>כל אנשי הקשר</strong></div>
-              <div>4. לחצו על <strong>⋯</strong> (שלוש נקודות) למעלה</div>
-              <div>5. בחרו <strong>ייצוא</strong></div>
-              <div>6. שמרו את הקובץ ב<strong>קבצים</strong></div>
-              <div style={{ marginTop: '8px' }}>אחר כך לחצו על הכפתור למטה ובחרו את הקובץ.</div>
-            </div>
-            <button
-              className="btn-primary"
-              onClick={() => { setShowIOSGuide(false); fileRef.current?.click(); }}
-              style={{ background: '#d4a843' }}
-            >
-              בחר קובץ אנשי קשר
-            </button>
-          </div>
-        </div>
-      )}
+      <input ref={fileRef} type="file" accept=".vcf,.csv,text/vcard,text/x-vcard,text/directory" onChange={handleFileImport} style={{ display: 'none' }} />
 
       {/* Add form */}
       {showAdd && (
