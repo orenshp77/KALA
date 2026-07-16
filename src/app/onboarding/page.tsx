@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
 import { getEvent } from '@/lib/supabaseData';
+import Swal from 'sweetalert2';
 
 const designs = [
   {
@@ -116,7 +117,33 @@ export default function OnboardingPage() {
     setSaving(true);
     await updateEvent(currentEvent.id, { selectedDesign });
     setSaving(false);
-    router.push('/dashboard');
+
+    const result = await Swal.fire({
+      title: 'רוצים לשלוח את ההזמנה?',
+      icon: 'question',
+      background: '#1a1a1a',
+      color: '#fff',
+      confirmButtonText: 'כן, לשלוח עכשיו',
+      cancelButtonText: 'לא, אני רוצה לחכות עם זה',
+      showCancelButton: true,
+      confirmButtonColor: '#d4a843',
+      cancelButtonColor: '#333',
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'שימו לב',
+        html: 'כדי ליצור סידורי שולחנות צריך להמתין לאורחים שיאשרו את הגעתם.<br><br>מוזמנים לבדוק בטבלה את המאשרים ולהתחיל לסדר.',
+        icon: 'info',
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonText: 'הבנתי',
+        confirmButtonColor: '#d4a843',
+      });
+      router.push('/dashboard/guests');
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   const displayName1 = coupleName1 || '\u05e9\u05dd1';
