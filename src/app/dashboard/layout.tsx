@@ -10,10 +10,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { currentUser, setEvent, setGuests } = useStore();
   const [ready, setReady] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Wait for Zustand hydration from localStorage
+  useEffect(() => {
+    const unsub = useStore.persist.onFinishHydration(() => setHydrated(true));
+    // If already hydrated
+    if (useStore.persist.hasHydrated()) setHydrated(true);
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     if (!currentUser) {
-      if (currentUser !== undefined) router.replace('/login');
+      router.replace('/login');
       return;
     }
     if (currentUser.role === 'admin') {
