@@ -261,7 +261,7 @@ export default function GuestsPage() {
     pollStartRef.current = Date.now();
 
     // Try to open the shortcut directly with the token as input
-    const shortcutName = encodeURIComponent('קבלת תוכן של כתובת אינטרנט');
+    const shortcutName = encodeURIComponent('KALA');
     window.location.href = `shortcuts://run-shortcut?name=${shortcutName}&input=text&text=${token}`;
   }, [currentUser?.eventId]);
 
@@ -585,19 +585,20 @@ export default function GuestsPage() {
                   }}
                 >
                   <Smartphone size={18} />
-                  התקן כלי ייבוא (פעם אחת)
+                  התקן את כלי הייבוא
                 </a>
 
                 <button
                   onClick={() => {
                     if (iosToken) {
-                      const shortcutName = encodeURIComponent('קבלת תוכן של כתובת אינטרנט');
+                      const shortcutName = encodeURIComponent('KALA');
                       window.location.href = `shortcuts://run-shortcut?name=${shortcutName}&input=text&text=${iosToken}`;
                     }
                   }}
                   style={{
                     width: '100%',
                     height: '48px',
+                    minHeight: '44px',
                     background: '#1a1a1a',
                     border: '1px solid #d4a843',
                     borderRadius: '14px',
