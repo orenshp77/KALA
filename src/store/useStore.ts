@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { User, Event, Guest } from '@/types';
 import {
   updateEventInDB,
@@ -46,7 +47,9 @@ interface StoreState {
   getGuestByTokenAsync: (token: string) => Promise<{ guest: Guest; event: Event } | null>;
 }
 
-export const useStore = create<StoreState>()((set, get) => ({
+export const useStore = create<StoreState>()(
+  persist(
+    (set, get) => ({
   currentUser: null,
   currentEvent: null,
   users: [adminUser],
@@ -126,4 +129,10 @@ export const useStore = create<StoreState>()((set, get) => ({
   getGuestByTokenAsync: async (token) => {
     return getGuestByToken(token);
   },
-}));
+}),
+    {
+      name: 'kala_session',
+      partialize: (state) => ({ currentUser: state.currentUser }),
+    }
+  )
+);
