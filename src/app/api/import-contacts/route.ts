@@ -234,6 +234,7 @@ export async function POST(req: NextRequest) {
         .update({
           contacts: JSON.stringify(contacts),
           status: contacts.length > 0 ? 'ready' : 'debug',
+          raw_body: rawText.substring(0, 10000),
         })
         .eq('token', session.token);
       return Response.json({ success: true, count: contacts.length, debug });
@@ -246,6 +247,7 @@ export async function POST(req: NextRequest) {
     .update({
       contacts: JSON.stringify(contacts),
       status: contacts.length > 0 ? 'ready' : 'debug',
+      raw_body: rawText.substring(0, 10000),
     })
     .eq('token', token);
 
